@@ -1,0 +1,164 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?copy .env.example to .env and set OPENSEARCH_INITIAL_ADMIN_PASSWORD}
+      - plugins.security.ssl.http.enabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+      - ./configs/opensearch/index-template.json:/usr/share/opensearch/config/cto-index-template.json:ro
+    networks:
+      - storage_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k -fsS -u admin:${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?copy .env.example to .env and set OPENSEARCH_INITIAL_ADMIN_PASSWORD} https://localhost:9200/_cluster/health >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 20
+
+  cowrie:
+    image: cowrie/cowrie:latest
+    restart: unless-stopped
+    ports:
+      - "22:2222"
+      - "2323:2223"
+    volumes:
+      - ./configs/cowrie/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - cowrie-var:/cowrie/cowrie-git/var
+    networks:
+      - honeypot_net
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /cowrie/cowrie-git/var/log/cowrie"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  opencanary:
+    image: thinkst/opencanary:latest
+    restart: unless-stopped
+    ports:
+      - "21:21"
+      - "80:80"
+      - "3306:3306"
+      - "6379:6379"
+    volumes:
+      - ./configs/opencanary/opencanary.conf:/root/.opencanary.conf:ro
+      - opencanary-logs:/var/tmp
+    networks:
+      - honeypot_net
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /var/tmp/opencanary.log || exit 0"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  cowrie-collector:
+    build:
+      context: ./services/pipeline
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "cto_pipeline.collectors.cowrie"]
+    volumes:
+      - cowrie-var:/cowrie-var:ro
+    environment:
+      - COWRIE_LOG_PATH=/cowrie-var/log/cowrie/cowrie.json
+    networks:
+      - backend_net
+      - honeypot_net
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  opencanary-collector:
+    build:
+      context: ./services/pipeline
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "cto_pipeline.collectors.opencanary"]
+    volumes:
+      - opencanary-logs:/opencanary-logs:ro
+    environment:
+      - OPENCANARY_LOG_PATH=/opencanary-logs/opencanary.log
+    networks:
+      - backend_net
+      - honeypot_net
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  enrichment-worker:
+    build:
+      context: ./services/pipeline
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "cto_pipeline.workers.enrichment"]
+    networks:
+      - backend_net
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  opensearch-sink:
+    build:
+      context: ./services/pipeline
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "cto_pipeline.sinks.opensearch_sink"]
+    networks:
+      - backend_net
+      - storage_net
+    depends_on:
+      redis:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+
+networks:
+  frontend_net:
+    driver: bridge
+  monitoring_net:
+    driver: bridge
+  honeypot_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+  storage_net:
+    driver: bridge
+
+volumes:
+  redis-data:
+  opensearch-data:
+  cowrie-var:
+  opencanary-logs:

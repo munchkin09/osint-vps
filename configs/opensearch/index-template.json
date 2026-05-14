@@ -1,0 +1,31 @@
+{
+  "index_patterns": ["cto-events-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "schema_version": { "type": "keyword" },
+        "event_id": { "type": "keyword" },
+        "source": { "type": "keyword" },
+        "timestamp": { "type": "date" },
+        "src_ip": { "type": "ip" },
+        "dst_port": { "type": "integer" },
+        "event_type": { "type": "keyword" },
+        "username": { "type": "keyword", "ignore_above": 256 },
+        "password": { "type": "keyword", "ignore_above": 256 },
+        "risk_score": { "type": "integer" },
+        "tags": { "type": "keyword" },
+        "geo.country_code": { "type": "keyword" },
+        "geo.country_name": { "type": "keyword" },
+        "geo.city": { "type": "keyword" },
+        "asn.number": { "type": "integer" },
+        "asn.organization": { "type": "keyword" },
+        "threat_intel.providers": { "type": "keyword" }
+      }
+    }
+  }
+}

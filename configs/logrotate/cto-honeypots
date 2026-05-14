@@ -1,0 +1,10 @@
+/var/lib/docker/volumes/*cowrie-var*/_data/log/cowrie/*.log
+/var/lib/docker/volumes/*cowrie-var*/_data/log/cowrie/*.json
+/var/lib/docker/volumes/*opencanary-logs*/_data/*.log {
+  daily
+  rotate 14
+  compress
+  missingok
+  notifempty
+  copytruncate
+}
