@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+data/
+logs/
+*.log
+opensearch-data/
+redis-data/
+cowrie-var/
+opencanary-logs/
