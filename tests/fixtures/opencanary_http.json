@@ -1,0 +1,11 @@
+{
+  "dst_host": "10.0.0.10",
+  "dst_port": 80,
+  "local_time": "2026-05-14T12:35:00Z",
+  "logdata": {
+    "HOSTNAME": "example"
+  },
+  "logtype": 3000,
+  "node_id": "cto-opencanary-01",
+  "src_host": "198.51.100.20"
+}
